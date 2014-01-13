@@ -1,7 +1,7 @@
 (function($){
 
 	//	Only set up the core if it doesn't already exist
-	if( !core ){
+	if( !$core ){
 
 		var $core = {
 			win: $(window),
