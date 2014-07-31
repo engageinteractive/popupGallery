@@ -14,7 +14,7 @@
 	var popupGalleryHtml = '<div id="popup-gallery" class="popup-gallery">'
 					+ '<div class="pg-image-container">'
 						+ '<div class="pg-image"></div>'
-						+ '<span class="pg-close">&times;</span>'
+						+ '<span class="pg-close"></span>'
 					+ '</div>'
 					+ '<nav>'
 						+ '<span class="pg-thumbnail-arrow-left"></span>'
@@ -71,68 +71,18 @@
 		beforeOpen: function(){},
 		afterOpen: function(){},
 		beforeChange: function(){},
+		duringChange: function(){},
 		afterChange: function(){},
 		beforeClose: function(){},
-		afterClose: function(){}
+		afterClose: function(){},
+		getSrc: false
 	};
 
 	var getMargin = function($this){
 
-		return ( 0 - ( $this.height() / 2 ) ) + 'px 0 0 ' + ( 0 - ( $this.width() / 2 ) ) + 'px';
+		return ( 0 - Math.round( $this.outerHeight() / 2 ) ) + 'px 0 0 ' + ( 0 - Math.round( $this.outerWidth() / 2 ) ) + 'px';
 
 	};
-
-	var insertNewImage = function(){
-
-		$g.image.container
-			.css({
-				top: 0,
-				left: 0
-			});
-
-		if( g.set[g.current].path ){
-
-			var src = g.set[g.current].path + g.set[g.current].images[g.set[g.current].current];
-
-		}else{
-
-			var src = $(g.set[g.current].images[g.set[g.current].current]).attr('href');
-
-		}
-
-		var $img = $('<img src="' + src + '" alt="Gallery image">')
-			.preload({
-				timeout: false,
-				ready: function(){
-
-					//	Insert the photo
-					$g.image.root
-						.empty()
-						.append( $img );
-
-					$g.image.container
-						.css({
-							top: g.set[g.current].thumbnails ? '47.5%' : '49%',
-							left: '50%',
-							scale: .8,
-							margin: getMargin($g.image.root)
-						})
-						.transition({
-							opacity: 1,
-							scale: 1
-						}, 300, 'easeOutCubic', function(){
-
-							g.busy = false;
-
-							g.set[g.current].afterChange();
-
-						});
-
-				},
-				src: src
-			});
-
-	}
 
 	var methods = {
 		init: function(settings){
@@ -247,25 +197,11 @@
 
 					g.resize = false;
 
-					$g.image.container
-						.css({
-							top: 0,
-							left: 0
-						});
-
-					$g.image.container
-						.css({
-							top: '50%',
-							left: '50%',
-							margin: getMargin( $g.image.root )
-						})
-						.transition({
-							opacity: 1
-						}, 400, 'easeInOutCubic');
+					$.popupGallery('positionImage');
 
 					$.popupGallery('positionThumbs');
 
-				}, 100);
+				}, 200);
 
 			});
 
@@ -296,7 +232,7 @@
 				$g.thumbnails.thumbs
 					.empty();
 
-				g.set[g.current].afterClose();
+				g.set[g.current].afterClose($g);
 
 			});
 
@@ -328,38 +264,172 @@
 
 				}
 
-				g.set[g.current].beforeChange(g.set[g.current]);
+				// If the gallery ever encounters a failing image, it removes it, this makes sure we don't try again
+				if( g.set[g.current].images[g.set[g.current].current] === false ){
 
-				if( g.open ){
-
-					$g.image.container.transition({
-						scale:		.8,
-						opacity:	0
-					}, 300, 'easeOutCubic', function(){
-
-						insertNewImage();
-
-					});
+					g.busy = false;
+					$.popupGallery('goto', 'next');
 
 				}else{
 
-					g.open = true;
+					g.set[g.current].beforeChange(g.set[g.current], $g);
 
-					insertNewImage();
+					if( g.open ){
 
-				}
+						$g.image.container.transition({
+							scale:		.8,
+							opacity:	0
+						}, 300, 'easeOutCubic', function(){
 
-				if( g.set[g.current].thumbnails ){
+							$.popupGallery('insertNewImage');
 
-					$g.thumbnails.thumbs
-						.find('li:eq(' + g.set[g.current].current + ')')
-						.addClass('current')
-						.siblings('.current')
-						.removeClass('current');
+						});
+
+					}else{
+
+						g.open = true;
+
+						$.popupGallery('insertNewImage');
+
+					}
+
+					if( g.set[g.current].thumbnails ){
+
+						$g.thumbnails.thumbs
+							.find('li:eq(' + g.set[g.current].current + ')')
+							.addClass('current')
+							.siblings('.current')
+							.removeClass('current');
+
+					}
 
 				}
 
 			}
+
+		},
+		insertNewImage: function(){
+
+			//	During change
+			g.set[g.current].duringChange(g.set[g.current], $g);
+
+			$g.image.container
+				.css({
+					top: 0,
+					left: 0,
+					scale: 1
+				});
+
+			if( g.set[g.current].getSrc ){
+
+				var src = g.set[g.current].getSrc( $(g.set[g.current].images[g.set[g.current].current]) );
+
+			}else if( g.set[g.current].path ){
+
+				var src = g.set[g.current].path + g.set[g.current].images[g.set[g.current].current];
+
+			}else{
+
+				var src = $(g.set[g.current].images[g.set[g.current].current]).attr('href');
+
+			}
+
+			var $img = $('<img src="' + src + '" alt="Gallery image">')
+				.preload({
+					timeout: false,
+					ready: function(){
+
+						//	Insert the photo
+						$g.image.root
+							.empty()
+							.append( $img );
+
+						$.popupGallery('positionImage', function(){
+
+							g.busy = false;
+
+							g.set[g.current].afterChange(g.set[g.current], $g);
+
+						});
+
+					},
+					error: function(){
+
+						g.set[ g.current ].images[ g.set[ g.current ].current ] = false;
+
+						$g.thumbnails.thumbs
+							.find('li:eq(' + g.set[ g.current ].current + ')')
+							.hide();
+
+						$.popupGallery('positionThumbs');
+
+						g.busy = false;
+
+						$.popupGallery('goto', 'next');
+
+					},
+					src: src
+				});
+
+		},
+		positionImage: function(done){
+
+			var $img = $g.image.root.children('img');
+
+			$img.removeAttr('style');
+
+			$g.image.container
+				.removeAttr('style')
+				.css({
+					opacity: 0
+				});
+
+			var maxWidth = Math.round( $core.win.width / 100 ) * 76,
+				maxHeight = Math.round( ( $core.win.height - ( g.set[g.current].thumbnails ? $g.thumbnails.root.outerHeight() : 0 ) ) / 100 ) * 70,
+				imgWidth = $img.width(),
+				imgHeight = $img.height();
+
+			if( imgWidth > maxWidth || imgHeight > maxHeight ){
+
+				$img
+					.css({
+						width: maxWidth
+					});
+
+				imgHeight = $img.height();
+
+				if( imgHeight > maxHeight ){
+
+					$img
+						.css({
+							width: 'auto',
+							height: maxHeight
+						});
+
+				}
+
+			}
+
+			imgWidth = $img.width();
+			imgHeight = $img.height();
+
+			$g.image.container
+				.css({
+					position: 'absolute',
+					top: g.set[g.current].thumbnails ? '46.5%' : '49%',
+					left: '50%',
+					scale: .8,
+					margin: getMargin($g.image.container)
+				})
+				.transition({
+					opacity: 1,
+					scale: 1
+				}, 300, 'easeOutCubic', function(){
+
+					if( done )
+						done.apply();
+
+				});
 
 		},
 		initThumbs: function(){
@@ -371,7 +441,11 @@
 				if( g.set[g.current].thumbnailProcess )
 					src = g.set[g.current].thumbnailProcess.replace('{path}', src);
 
-				html = html + '<li style="background-image: url(' + src + ')"></li>';
+				if( !src || src == undefined ){
+					html = html + '<li style="display: none">404</li>';
+				}else{
+					html = html + '<li style="background-image: url(' + src + ')"></li>';
+				}
 
 			};
 
@@ -387,7 +461,7 @@
 
 				$.each(g.set[g.current].images, function(){
 
-					buildThumb( $(this).attr('href') );
+					buildThumb( $(this).data('thumbnail') );
 
 				});
 
@@ -442,7 +516,7 @@
 	$g.arrows
 		.on('click', function(e){
 
-			$.popupGallery('goto', $(this).is('.arrow-left') ? 'prev' : 'next');
+			$.popupGallery('goto', $(this).is('.pg-arrow-left') ? 'prev' : 'next');
 
 			e.preventDefault();
 
