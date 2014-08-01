@@ -461,7 +461,7 @@
 
 				$.each(g.set[g.current].images, function(){
 
-					buildThumb( $(this).data('thumbnail') );
+					buildThumb( g.set[g.current].thumbnailProcess ? g.set[g.current].getSrc( $(this) ) : $(this).data('thumbnail') );
 
 				});
 
